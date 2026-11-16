@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Juego de 3 en raya para entrenar: contra la máquina con 4 niveles, 2 jugadores y modo entrenador con consejos.">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<title>3 en raya – Entrena para el torneo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&family=Nunito:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#fff7ec; --card:#ffffff; --ink:#2b2d42; --muted:#6b6f80;
+    --x:#ef476f; --o:#118ab2; --accent:#ffd166; --good:#06d6a0; --ok:#f4a259; --bad:#ef476f;
+    --line:#eadfce;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Nunito,system-ui,sans-serif;color:var(--ink);
+    background:var(--bg);
+    background-image:radial-gradient(circle at 10% 10%,#ffe8c2 0,transparent 35%),radial-gradient(circle at 90% 80%,#d8f3ff 0,transparent 35%);
+    min-height:100vh}
+  header{text-align:center;padding:20px 12px 4px}
+  h1{font-family:'Baloo 2',cursive;font-weight:800;font-size:clamp(36px,6vw,56px);margin:0;line-height:1}
+  h1 .x{color:var(--x)} h1 .o{color:var(--o)}
+  header p{margin:4px 0 0;color:var(--muted);font-weight:700}
+  main{max-width:1120px;margin:0 auto;padding:14px;display:grid;gap:16px;grid-template-columns:minmax(0,1fr);
+    grid-template-areas:"settings" "game" "coach"}
+  @media (max-width:480px){.seg button,.btn{padding:7px 11px;font-size:14px}.board{gap:7px;padding:7px}}
+  @media (min-width:920px){
+    main{grid-template-columns:minmax(0,1fr) 360px;grid-template-areas:"settings settings" "game coach"}
+  }
+  .panel{background:var(--card);border-radius:22px;padding:16px 18px;min-width:0;
+    box-shadow:0 4px 0 var(--line),0 12px 30px rgba(43,45,66,.06)}
+  .settings{grid-area:settings;display:flex;flex-wrap:wrap;gap:14px 26px;align-items:center}
+  .game{grid-area:game;display:flex;flex-direction:column;align-items:center;gap:14px}
+  .coach{grid-area:coach;display:flex;flex-direction:column;gap:12px}
+  .field{display:flex;flex-direction:column;gap:6px}
+  .lbl{font-size:13px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+  .seg{display:flex;flex-wrap:wrap;gap:6px}
+  .seg button,.btn{border:2px solid var(--line);background:#fff;border-radius:999px;padding:8px 14px;
+    font:inherit;font-weight:800;color:var(--ink);cursor:pointer;transition:transform .1s,background .15s}
+  .seg button:hover,.btn:hover{transform:translateY(-1px)}
+  .seg button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .btn.primary{background:var(--accent);border-color:#f2bd3f}
+  .btn:disabled{opacity:.4;cursor:default;transform:none}
+  .names{display:flex;gap:8px;flex-wrap:wrap}
+  .names input{font:inherit;font-weight:700;border:2px solid var(--line);border-radius:12px;padding:7px 10px;width:150px;max-width:100%}
+  .names input.nx{border-color:var(--x)} .names input.no{border-color:var(--o)}
+  .toggle{display:flex;align-items:center;gap:10px;font-weight:800;cursor:pointer;user-select:none}
+  .toggle input{display:none}
+  .sw{width:46px;height:26px;border-radius:99px;background:#d9d4cc;position:relative;transition:.2s}
+  .sw::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:.2s}
+  .toggle input:checked + .sw{background:var(--good)}
+  .toggle input:checked + .sw::after{left:23px}
+  .hidden{display:none !important}
+
+  .score{display:flex;gap:10px;width:100%;max-width:420px}
+  .score div{flex:1;text-align:center;background:#faf5ee;border-radius:16px;padding:8px 6px}
+  .score b{display:block;font-family:'Baloo 2';font-size:28px;line-height:1.1}
+  .score span{font-size:13px;font-weight:800;color:var(--muted)}
+  .score .sa b{color:var(--x)} .score .sb b{color:var(--o)}
+
+  .status{font-family:'Baloo 2';font-size:24px;font-weight:800;display:flex;align-items:center;gap:8px;min-height:36px;text-align:center}
+  .status svg{width:28px;height:28px}
+
+  .board{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-template-rows:repeat(3,minmax(0,1fr));gap:10px;width:100%;max-width:400px;aspect-ratio:1;
+    background:var(--ink);padding:10px;border-radius:24px;box-shadow:0 8px 0 #1b1c2b}
+  .cell{background:#fff;border:0;border-radius:16px;cursor:pointer;display:grid;place-items:center;padding:16%;
+    transition:background .15s, box-shadow .2s;position:relative}
+  .cell:hover:not(.filled):not(:disabled){background:#fff4d6}
+  .cell:disabled{cursor:default}
+  .cell svg{width:100%;height:100%;overflow:visible}
+  .cell.new svg{animation:pop .28s ease-out}
+  .cell.win{background:var(--accent)}
+  .cell.win svg{animation:bounce .6s ease-in-out infinite alternate}
+  .cell.hint{box-shadow:inset 0 0 0 6px var(--good);animation:pulse 1s ease-in-out infinite}
+  .cell.flash{box-shadow:inset 0 0 0 6px var(--accent)}
+  @keyframes pop{from{transform:scale(.2);opacity:0}to{transform:scale(1);opacity:1}}
+  @keyframes bounce{from{transform:scale(1)}to{transform:scale(1.12)}}
+  @keyframes pulse{50%{background:#e6fbf5}}
+
+  .actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+  .result{font-family:'Baloo 2';font-size:22px;font-weight:800;background:#fff4d6;border-radius:16px;padding:8px 16px;text-align:center}
+
+  .coach h2{font-family:'Baloo 2';margin:0;font-size:24px}
+  .tip{background:#eaf7ff;border-left:6px solid var(--o);border-radius:12px;padding:10px 12px;font-weight:700}
+  .log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:330px;overflow:auto}
+  .log li{border-radius:12px;padding:9px 11px;font-size:15px;line-height:1.35;background:#f7f3ee;animation:pop .25s}
+  .log li.great{background:#e2fbf3;border-left:6px solid var(--good)}
+  .log li.good{background:#effbf6;border-left:6px solid #7fdcbc}
+  .log li.ok{background:#fff3e6;border-left:6px solid var(--ok)}
+  .log li.bad{background:#ffe9ee;border-left:6px solid var(--bad)}
+  .log li.info{background:#f1f1f7;border-left:6px solid #9a9db0}
+  .log li small{display:block;font-weight:800;color:var(--muted);font-size:12px;margin-bottom:2px}
+  .summary{background:#faf5ee;border-radius:14px;padding:10px 12px;font-weight:700}
+  .off{color:var(--muted);font-weight:700}
+  details{background:#faf5ee;border-radius:14px;padding:10px 12px}
+  summary{font-weight:800;cursor:pointer}
+  details ol{padding-left:20px;margin:8px 0 0}
+  details li{margin-bottom:6px;line-height:1.35}
+</style>
+</head>
+<body>
+<header>
+  <h1><span class="x">3</span> en <span class="o">raya</span></h1>
+  <p>¡Entrena para el torneo del cole!</p>
+</header>
+
+<main>
+  <section class="panel settings">
+    <div class="field">
+      <span class="lbl">Modo</span>
+      <div class="seg" id="modeSeg">
+        <button data-v="cpu" class="on">🤖 Contra la máquina</button>
+        <button data-v="pvp">👫 2 jugadores</button>
+      </div>
+    </div>
+    <div class="field cpu-only">
+      <span class="lbl">Nivel</span>
+      <div class="seg" id="levelSeg">
+        <button data-v="1">😊 Fácil</button>
+        <button data-v="2" class="on">🙂 Medio</button>
+        <button data-v="3">😎 Difícil</button>
+        <button data-v="4">🧠 Imposible</button>
+      </div>
+    </div>
+    <div class="field cpu-only">
+      <span class="lbl">¿Quién empieza?</span>
+      <div class="seg" id="startSeg">
+        <button data-v="human" class="on">Yo</button>
+        <button data-v="cpu">La máquina</button>
+        <button data-v="alt">Por turnos</button>
+      </div>
+    </div>
+    <div class="field pvp-only hidden">
+      <span class="lbl">Nombres</span>
+      <div class="names">
+        <input id="nameA" class="nx" value="Jugador 1" maxlength="14" aria-label="Nombre jugador 1">
+        <input id="nameB" class="no" value="Jugador 2" maxlength="14" aria-label="Nombre jugador 2">
+      </div>
+    </div>
+    <label class="toggle"><input type="checkbox" id="coachToggle" checked><span class="sw"></span>🎓 Modo entrenador</label>
+  </section>
+
+  <section class="panel game">
+    <div class="score">
+      <div class="sa"><b id="scA">0</b><span id="lblA">Tú</span></div>
+      <div><b id="scD">0</b><span>Empates</span></div>
+      <div class="sb"><b id="scB">0</b><span id="lblB">Máquina</span></div>
+    </div>
+    <div class="status" id="status"></div>
+    <div class="board" id="board"></div>
+    <div class="result hidden" id="result"></div>
+    <div class="actions">
+      <button class="btn primary" id="newBtn">🔄 Nueva partida</button>
+      <button class="btn coach-only" id="hintBtn">💡 Pista</button>
+      <button class="btn coach-only" id="undoBtn">↩️ Deshacer</button>
+      <button class="btn" id="resetBtn">🧹 Borrar marcador</button>
+    </div>
+  </section>
+
+  <aside class="panel coach">
+    <h2>🎓 Entrenador</h2>
+    <div id="coachOn">
+      <div class="tip" id="tip">¡Hola! Te iré dando consejos mientras juegas.</div>
+      <div class="summary hidden" id="summary" style="margin-top:12px"></div>
+      <ul class="log" id="log" style="margin-top:12px"></ul>
+    </div>
+    <p class="off hidden" id="coachOff">Activa el <b>modo entrenador</b> para recibir consejos, pistas y poder deshacer jugadas.</p>
+    <details>
+      <summary>🏆 Trucos para ganar el torneo</summary>
+      <ol>
+        <li><b>Primero, ¿puedo ganar?</b> Si tienes dos en raya y la tercera casilla está libre, ¡pon ahí!</li>
+        <li><b>Segundo, ¿va a ganar el rival?</b> Si él tiene dos en raya, tápale.</li>
+        <li><b>Empieza en el centro o en una esquina.</b> El centro está en 4 líneas, las esquinas en 3 y los lados solo en 2.</li>
+        <li><b>Si el rival empieza en el centro</b>, responde en una esquina (¡nunca en un lado!).</li>
+        <li><b>Si el rival empieza en una esquina</b>, responde en el centro.</li>
+        <li><b>La doble amenaza:</b> busca una casilla que te dé dos formas de ganar a la vez. El rival solo puede tapar una.</li>
+        <li><b>Trampa de las esquinas:</b> si empiezas en una esquina y el rival no va al centro, ponte en otra esquina: casi siempre ganas.</li>
+        <li><b>Si tienes el centro y el rival tiene dos esquinas opuestas</b>, juega en un lado, no en una esquina.</li>
+        <li>Si los dos juegan perfecto, la partida acaba en <b>empate</b>. ¡No perder ya es un buen resultado!</li>
+      </ol>
+    </details>
+  </aside>
+</main>
+
+<script>
+(() => {
+  const LINES=[[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
+  const CORNERS=[0,2,6,8], EDGES=[1,3,5,7];
+  const POS=['la esquina de arriba a la izquierda','el lado de arriba','la esquina de arriba a la derecha',
+             'el lado izquierdo','el centro','el lado derecho',
+             'la esquina de abajo a la izquierda','el lado de abajo','la esquina de abajo a la derecha'];
+  const SVG={
+    X:'<svg viewBox="0 0 100 100"><path d="M18 18L82 82M82 18L18 82" stroke="#ef476f" stroke-width="17" stroke-linecap="round" fill="none"/></svg>',
+    O:'<svg viewBox="0 0 100 100"><circle cx="50" cy="50" r="33" stroke="#118ab2" stroke-width="15" fill="none"/></svg>'
+  };
+  const $=id=>document.getElementById(id);
+  const other=p=>p==='X'?'O':'X';
+  const rnd=a=>a[Math.floor(Math.random()*a.length)];
+  const empties=b=>b.map((v,i)=>v?null:i).filter(i=>i!==null);
+
+  function winnerInfo(b){
+    for(const l of LINES){const[a,c,d]=l; if(b[a]&&b[a]===b[c]&&b[a]===b[d]) return {p:b[a],line:l};}
+    return null;
+  }
+  const full=b=>b.every(Boolean);
+  // casillas donde p gana inmediatamente
+  function wins(b,p){
+    return empties(b).filter(i=>{b[i]=p;const w=winnerInfo(b);b[i]=null;return !!w;});
+  }
+  // minimax (negamax) con memoria: valor desde el punto de vista de quien mueve
+  const memo=new Map();
+  function minimax(b,turn){
+    const key=b.map(v=>v||'-').join('')+turn;
+    if(memo.has(key)) return memo.get(key);
+    let res;
+    if(winnerInfo(b)) res=-10;
+    else if(full(b)) res=0;
+    else{
+      let best=-Infinity;
+      for(const i of empties(b)){
+        b[i]=turn; let v=-minimax(b,other(turn)); b[i]=null;
+        v = v>0? v-1 : v<0? v+1 : 0;
+        if(v>best) best=v;
+      }
+      res=best;
+    }
+    memo.set(key,res); return res;
+  }
+  function moveScores(b,p){
+    const s={};
+    for(const i of empties(b)){b[i]=p; let v=-minimax(b,other(p)); b[i]=null; s[i]= v>0?v-1:v<0?v+1:0;}
+    return s;
+  }
+  function bestMoves(s){
+    const ks=Object.keys(s).map(Number); const m=Math.max(...ks.map(k=>s[k]));
+    return ks.filter(k=>s[k]===m);
+  }
+  const sign=v=>v>0?1:v<0?-1:0;
+  const forkCells=(b,p)=>empties(b).filter(i=>{b[i]=p;const n=wins(b,p).length;b[i]=null;return n>=2;});
+
+  // ---------- Estado ----------
+  const S={mode:'cpu',level:2,start:'human',coach:true,
+    board:Array(9).fill(null),turn:'X',sym:{A:'X',B:'O'},over:false,busy:false,
+    history:[],last:null,gameNo:0,score:{A:0,D:0,B:0},stats:null,win:null};
+
+  const isHuman=sym=> S.mode==='pvp' || sym===S.sym.A;
+  const partOf=sym=> sym===S.sym.A?'A':'B';
+  function nameOf(sym){
+    const p=partOf(sym);
+    if(S.mode==='cpu') return p==='A'?'Tú':'La máquina';
+    return ($(p==='A'?'nameA':'nameB').value.trim()|| (p==='A'?'Jugador 1':'Jugador 2'));
+  }
+
+  // ---------- Partida ----------
+  function newGame(){
+    S.gameNo++;
+    let aFirst;
+    if(S.mode==='cpu') aFirst = S.start==='human' ? true : S.start==='cpu' ? false : S.gameNo%2===1;
+    else aFirst = S.gameNo%2===1;
+    S.sym = aFirst?{A:'X',B:'O'}:{A:'O',B:'X'};
+    S.board=Array(9).fill(null); S.turn='X'; S.over=false; S.busy=false; S.history=[]; S.last=null; S.win=null;
+    S.stats={A:{good:0,ok:0,bad:0},B:{good:0,ok:0,bad:0}};
+    $('log').innerHTML=''; $('summary').classList.add('hidden'); $('result').classList.add('hidden');
+    clearMarks();
+    render();
+    if(!isHuman(S.turn)) cpuTurn(); else showTip();
+  }
+
+  function play(i){
+    if(S.over||S.busy||S.board[i]||!isHuman(S.turn)) return;
+    doMove(i);
+  }
+
+  function doMove(i){
+    const before=S.board.slice(), p=S.turn;
+    S.history.push({board:before,turn:p});
+    S.board[i]=p; S.last=i; clearMarks();
+    if(S.coach && isHuman(p)) analyze(before,i,p);
+    const w=winnerInfo(S.board);
+    if(w){ endGame(w); }
+    else if(full(S.board)){ endGame(null); }
+    else{
+      S.turn=other(p);
+      render();
+      if(!isHuman(S.turn)) cpuTurn(); else showTip();
+    }
+  }
+
+  function cpuTurn(){
+    S.busy=true; render();
+    setTimeout(()=>{ S.busy=false; if(!S.over) doMove(cpuPick()); }, 550);
+  }
+
+  function cpuPick(){
+    const b=S.board.slice(), p=S.turn, o=other(p), e=empties(b);
+    const win=wins(b,p), block=wins(b,o);
+    if(S.level===1){
+      if(win.length && Math.random()<0.5) return rnd(win);
+      if(block.length && Math.random()<0.3) return rnd(block);
+      return rnd(e);
+    }
+    if(S.level===2){
+      if(win.length) return rnd(win);
+      if(block.length) return rnd(block);
+      if(!b[4] && Math.random()<0.6) return 4;
+      return rnd(e);
+    }
+    if(S.level===3 && Math.random()<0.22){
+      if(win.length) return rnd(win);
+      if(block.length) return rnd(block);
+      return rnd(e);
+    }
+    return rnd(bestMoves(moveScores(b,p)));
+  }
+
+  function endGame(w){
+    S.over=true; S.win=w;
+    let msg;
+    if(w){
+      const part=partOf(w.p); S.score[part]++;
+      if(S.mode==='cpu') msg = part==='A' ? '🎉 ¡Has ganado! ¡Genial!' : '🤖 Gana la máquina. ¡A por la revancha!';
+      else msg = `🎉 ¡Gana ${nameOf(w.p)}!`;
+    } else { S.score.D++; msg='🤝 ¡Empate! Bien defendido.'; }
+    $('result').textContent=msg; $('result').classList.remove('hidden');
+    render();
+    if(S.coach) showSummary(w);
+  }
+
+  function undo(){
+    if(S.busy||!S.history.length) return;
+    let st=S.history.pop();
+    if(S.mode==='cpu'){ while(!isHuman(st.turn) && S.history.length) st=S.history.pop(); }
+    if(S.over){ // quitar el punto ya contado
+      if(S.win) S.score[partOf(S.win.p)]--; else S.score.D--;
+    }
+    S.board=st.board.slice(); S.turn=st.turn; S.over=false; S.win=null; S.last=null;
+    $('result').classList.add('hidden'); $('summary').classList.add('hidden');
+    addLog('info','↩️ Jugada deshecha. ¡Inténtalo otra vez!');
+    clearMarks(); render();
+    if(!isHuman(S.turn)) cpuTurn(); else showTip();
+  }
+
+  // ---------- Entrenador ----------
+  function analyze(before,i,p){
+    const o=other(p), after=before.slice(); after[i]=p;
+    const sc=moveScores(before.slice(),p), best=bestMoves(sc);
+    const bestV=sc[best[0]], myV=sc[i];
+    const winNow=wins(before.slice(),p), threat=wins(before.slice(),o);
+    let type, msg, mark=[];
+    if(winnerInfo(after)){
+      type='good'; msg='🏆 ¡Tres en raya! Has visto la jugada ganadora.';
+    } else if(winNow.length){
+      type='bad'; mark=winNow;
+      msg=`❌ ¡Podías ganar! Poniendo en ${POS[winNow[0]]} hacías tres en raya. Antes de mover, mira siempre si puedes ganar.`;
+    } else if(threat.length>=2){
+      type='info';
+      msg='😬 El rival tenía dos formas de ganar a la vez (doble amenaza). Ya no se podía tapar todo: el fallo estuvo en una jugada anterior.';
+    } else if(threat.length && !threat.includes(i)){
+      type='bad'; mark=threat;
+      msg=`❌ ¡Cuidado! El rival tenía dos en raya y podía ganar en ${POS[threat[0]]}. Había que taparle ahí.`;
+    } else if(wins(after.slice(),p).length>=2){
+      type='good'; msg='⚡ ¡Doble amenaza! Ahora tienes dos formas de ganar y el rival solo puede tapar una.';
+    } else if(sign(myV)<sign(bestV)){
+      mark=best;
+      if(sign(myV)<0){
+        type='bad';
+        const trap=forkCells(after.slice(),o)[0];
+        msg = trap!==undefined
+          ? `⚠️ Esta jugada tiene peligro: si el rival pone en ${POS[trap]}, tendrá dos formas de ganar y no podrás tapar las dos. Era mejor ${POS[best[0]]}.`
+          : `⚠️ Con esta jugada el rival puede ganarte si juega bien. Era mejor ${POS[best[0]]}.`;
+      } else {
+        type='ok';
+        const f=forkCells(before.slice(),p);
+        msg = f.length
+          ? `👍 No está mal, pero en ${POS[f[0]]} hacías una doble amenaza y ganabas seguro.`
+          : `👍 No está mal, pero desde ${POS[best[0]]} podías preparar una jugada ganadora.`;
+      }
+    } else if(threat.includes(i)){
+      type='good'; msg='🛡️ ¡Bien tapado! Has evitado que el rival haga tres en raya.';
+    } else {
+      [type,msg]=positionalTip(before,i,p,after);
+    }
+    const part=partOf(p); S.stats[part][type==='info'?'ok':type]++;
+    addLog(type,msg,S.mode==='pvp'?nameOf(p):null);
+    if(mark.length) flash(mark);
+  }
+
+  function positionalTip(before,i,p,after){
+    const n=before.filter(Boolean).length, o=other(p);
+    if(n===0){
+      if(i===4) return ['good','✅ ¡Muy bien! El centro es la mejor casilla para empezar: está en 4 líneas.'];
+      if(CORNERS.includes(i)) return ['good','✅ Buena salida. Empezar en una esquina es una gran idea: si el rival no va al centro, ¡puedes ganar!'];
+      return ['ok','👍 Vale, pero los lados solo están en 2 líneas. Prueba a empezar en el centro o en una esquina.'];
+    }
+    if(n===1){
+      if(before[4]===o && CORNERS.includes(i)) return ['good','✅ ¡Perfecto! Si el rival empieza en el centro, hay que responder en una esquina.'];
+      if(CORNERS.some(c=>before[c]===o) && i===4) return ['good','✅ ¡Muy bien! Si el rival empieza en una esquina, se responde en el centro.'];
+    }
+    if(wins(after.slice(),p).length===1) return ['good','✅ Buena jugada: haces dos en raya y obligas al rival a taparte.'];
+    return ['good','✅ Buena jugada. No le dejas ninguna oportunidad al rival.'];
+  }
+
+  function showTip(){
+    if(!S.coach||S.over||!isHuman(S.turn)) return;
+    const b=S.board.slice(), p=S.turn, o=other(p), n=b.filter(Boolean).length;
+    const who = S.mode==='pvp' ? `<b>${esc(nameOf(p))}</b>: ` : '';
+    let t;
+    if(wins(b,p).length) t='🏆 ¡Tienes una jugada ganadora! Busca dónde haces tres en raya.';
+    else if(wins(b,o).length) t='🛡️ ¡Peligro! El rival tiene dos en raya. ¡Tápale!';
+    else if(forkCells(b,p).length) t='⚡ Hay una casilla con la que haces doble amenaza. ¿La encuentras?';
+    else if(n===0) t='🎯 Empieza en el centro o en una esquina.';
+    else if(n===1 && b[4]) t='🎯 El rival está en el centro: responde en una esquina.';
+    else if(n===1 && CORNERS.some(c=>b[c])) t='🎯 El rival está en una esquina: responde en el centro.';
+    else if(n===1) t='🎯 El rival está en un lado: el centro es una buena respuesta.';
+    else if(forkCells(b,o).length) t='👀 Atento: el rival podría preparar una doble amenaza. ¡Adelántate y quítale esa casilla (o oblígale a taparte)!';
+    else t='🤔 Piensa: ¿qué casilla te ayuda a ti y a la vez molesta al rival?';
+    $('tip').innerHTML=who+t;
+  }
+
+  function showSummary(w){
+    const lines=[];
+    const parts = S.mode==='cpu' ? ['A'] : ['A','B'];
+    for(const part of parts){
+      const s=S.stats[part], name = S.mode==='cpu' ? 'Tus jugadas' : esc(nameOf(S.sym[part]));
+      lines.push(`<div>${name}: ✅ ${s.good} buenas · 👍 ${s.ok} mejorables · ❌ ${s.bad} errores</div>`);
+    }
+    let extra='';
+    const s=S.stats.A;
+    if(S.mode==='cpu'){
+      if(w && partOf(w.p)==='A') extra='¡Partidazo! 🌟';
+      else if(s.bad===0) extra='¡Sin errores! Así se juega un torneo. 🌟';
+      else extra='Repasa los mensajes en rojo: ahí está la clave para mejorar.';
+    }
+    $('summary').innerHTML='<b>📋 Resumen de la partida</b>'+lines.join('')+(extra?`<div style="margin-top:4px">${extra}</div>`:'');
+    $('summary').classList.remove('hidden');
+    $('tip').innerHTML='Pulsa <b>Nueva partida</b> para seguir entrenando.';
+  }
+
+  function hint(){
+    if(S.over||S.busy||!isHuman(S.turn)) return;
+    clearMarks();
+    const best=bestMoves(moveScores(S.board.slice(),S.turn));
+    best.forEach(i=>cells[i].classList.add('hint'));
+    addLog('info',`💡 Pista: las mejores casillas ahora mismo están marcadas en verde (${best.length===1?POS[best[0]]:best.length+' opciones'}).`);
+  }
+
+  // ---------- Interfaz ----------
+  const boardEl=$('board'); const cells=[];
+  for(let i=0;i<9;i++){
+    const c=document.createElement('button'); c.className='cell'; c.setAttribute('aria-label',POS[i]);
+    c.addEventListener('click',()=>play(i)); boardEl.appendChild(c); cells.push(c);
+  }
+  let flashTimer=null;
+  function clearMarks(){ cells.forEach(c=>c.classList.remove('hint','flash')); clearTimeout(flashTimer); }
+  function flash(list){
+    list.forEach(i=>cells[i].classList.add('flash'));
+    flashTimer=setTimeout(()=>cells.forEach(c=>c.classList.remove('flash')),2200);
+  }
+  const esc=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+  function addLog(type,msg,who){
+    const li=document.createElement('li'); li.className=type;
+    li.innerHTML=(who?`<small>${esc(who)}</small>`:'')+msg;
+    $('log').prepend(li);
+  }
+
+  function render(){
+    cells.forEach((c,i)=>{
+      const v=S.board[i];
+      c.innerHTML=v?SVG[v]:'';
+      c.classList.toggle('filled',!!v);
+      c.classList.toggle('new',i===S.last);
+      c.classList.toggle('win',!!(S.win&&S.win.line.includes(i)));
+      c.disabled = S.over || S.busy || !!v || !isHuman(S.turn);
+    });
+    // estado
+    let st;
+    if(S.over) st = S.win ? `${SVG[S.win.p]} ¡Tres en raya!` : '🤝 Empate';
+    else if(!isHuman(S.turn)) st=`${SVG[S.turn]} La máquina está pensando…`;
+    else st = S.mode==='cpu' ? `${SVG[S.turn]} Te toca` : `${SVG[S.turn]} Le toca a ${esc(nameOf(S.turn))}`;
+    $('status').innerHTML=st;
+    // marcador
+    $('scA').textContent=S.score.A; $('scD').textContent=S.score.D; $('scB').textContent=S.score.B;
+    if(S.mode==='cpu'){ $('lblA').textContent='Tú'; $('lblB').textContent='Máquina'; }
+    else { $('lblA').textContent=$('nameA').value||'Jugador 1'; $('lblB').textContent=$('nameB').value||'Jugador 2'; }
+    // colores del marcador según ficha de esta partida
+    document.querySelector('.score .sa b').style.color = S.sym.A==='X'?'var(--x)':'var(--o)';
+    document.querySelector('.score .sb b').style.color = S.sym.B==='X'?'var(--x)':'var(--o)';
+    // botones
+    document.querySelectorAll('.coach-only').forEach(e=>e.classList.toggle('hidden',!S.coach));
+    $('hintBtn').disabled = S.over||S.busy||!isHuman(S.turn);
+    $('undoBtn').disabled = S.busy||!S.history.length;
+    document.querySelectorAll('.cpu-only').forEach(e=>e.classList.toggle('hidden',S.mode!=='cpu'));
+    document.querySelectorAll('.pvp-only').forEach(e=>e.classList.toggle('hidden',S.mode!=='pvp'));
+    $('coachOn').classList.toggle('hidden',!S.coach); $('coachOff').classList.toggle('hidden',S.coach);
+  }
+
+  function seg(id,cb){
+    const el=$(id);
+    el.addEventListener('click',e=>{
+      const b=e.target.closest('button'); if(!b) return;
+      el.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));
+      cb(b.dataset.v);
+    });
+  }
+  seg('modeSeg',v=>{S.mode=v; S.score={A:0,D:0,B:0}; S.gameNo=0; newGame();});
+  seg('levelSeg',v=>{S.level=Number(v); S.score={A:0,D:0,B:0}; S.gameNo=0; newGame();});
+  seg('startSeg',v=>{S.start=v; S.gameNo=0; newGame();});
+  $('coachToggle').addEventListener('change',e=>{S.coach=e.target.checked; clearMarks(); render(); showTip();});
+  ['nameA','nameB'].forEach(id=>$(id).addEventListener('input',render));
+  $('newBtn').addEventListener('click',newGame);
+  $('hintBtn').addEventListener('click',hint);
+  $('undoBtn').addEventListener('click',undo);
+  $('resetBtn').addEventListener('click',()=>{S.score={A:0,D:0,B:0}; render();});
+
+  newGame();
+})();
+</script>
+</body>
+</html>
